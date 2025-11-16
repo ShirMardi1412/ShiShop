@@ -10,7 +10,7 @@ namespace DBL
                                     user id=root;
                                     password=josh17rog;
                                     persistsecurityinfo=True;
-                                    database=mystore"; // צריך לשנות פה לפי שם המסד העתידי שלי
+                                    database=shishop";
 
         protected DbConnection conn;
         protected DbCommand cmd;
