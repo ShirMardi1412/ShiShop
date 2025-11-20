@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Models
 {
-    internal class Bill
+    public class Bill
     {
         public int IdBill { get; set; }
         public bool Paid { get; set; }

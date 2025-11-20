@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Models
 {
-    internal class Shift
+    public class Shift
     {
         public int ShiftId { get; set; }
         public DateTime Start { get; set; }
