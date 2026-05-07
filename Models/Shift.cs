@@ -1,28 +1,32 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Models
 {
     public class Shift
     {
+        public enum ShiftType
+        {
+            Morning,
+            Evening
+        }
+
         public int ShiftId { get; set; }
+        public DateTime DateTime { get; set; }
         public DateTime Start { get; set; }
         public DateTime End { get; set; }
         public int EmployCode { get; set; }
-        public DateTime Entry { get; set; }
+        public ShiftType Type { get; set; } // Re-added the Enum property
 
         public Shift() { }
 
-        public Shift(int shiftId, DateTime start, DateTime end, int employCode, DateTime entry)
+        public Shift(int shiftId, DateTime start, DateTime end, int employCode, DateTime dateTime, ShiftType type)
         {
             ShiftId = shiftId;
+            DateTime = dateTime;
             Start = start;
             End = end;
             EmployCode = employCode;
-            Entry = entry;
+            Type = type;
         }
     }
 }

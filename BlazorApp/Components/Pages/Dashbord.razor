@@ -1,0 +1,471 @@
+﻿@page "/dashboard"
+@using Models
+@using DBL
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject ProtectedSessionStorage MySession
+@inject NavigationManager NavManager
+
+<style>
+    /* Cloud-like pink aesthetic */
+    body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #fff5f7 0%, #ffe4e9 50%, #f0f4ff 100%);
+    min-height: 100vh;
+    color: #444;
+    }
+
+    .main-container {
+    max-width: 1100px;
+    margin: 40px auto;
+    padding: 20px;
+    }
+
+    /* Glassmorphism containers */
+    .glass-card {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(15px);
+    border-radius: 30px;
+    padding: 30px;
+    box-shadow: 0 10px 30px rgba(255, 182, 193, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    margin-bottom: 30px;
+    }
+
+    h2, h3 {
+    color: #d63384;
+    font-weight: 300;
+    margin-top: 0;
+    }
+
+    /* Table styling */
+    .custom-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    background: white;
+    border-radius: 20px;
+    overflow: hidden;
+    }
+
+    .custom-table th {
+    background-color: #ffb6c1;
+    color: white;
+    padding: 15px;
+    text-align: left;
+    }
+
+    .custom-table td {
+    padding: 12px 15px;
+    border-bottom: 1px solid #ffe4e9;
+    font-size: 0.9em;
+    }
+
+    .custom-table tr:hover {
+    background-color: #fffafa;
+    }
+
+    /* Input and Form fields */
+    .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    }
+
+    .input-group {
+    margin-bottom: 15px;
+    text-align: left;
+    }
+
+    label {
+    display: block;
+    color: #ff85a1;
+    margin-bottom: 5px;
+    font-size: 0.85em;
+    padding-left: 10px;
+    }
+
+    .input-field {
+    padding: 12px 15px;
+    border-radius: 20px;
+    border: 2px solid #ffe4e9;
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+    transition: 0.3s;
+    }
+
+    .input-field:focus {
+    border-color: #ffb6c1;
+    }
+
+    /* Buttons */
+    .btn {
+    padding: 10px 20px;
+    border-radius: 20px;
+    border: none;
+    cursor: pointer;
+    transition: 0.3s;
+    font-size: 0.9em;
+    }
+
+    .btn-edit {
+    background: #ffc1e3;
+    color: #d63384;
+    }
+
+    .btn-delete {
+    background: #ff85a1;
+    color: white;
+    }
+
+    .btn-save {
+    background: #d63384;
+    color: white;
+    width: 100%;
+    font-size: 1.1em;
+    }
+
+    .btn-logout {
+    background: white;
+    border: 1px solid #ff85a1;
+    color: #ff85a1;
+    float: right;
+    }
+
+    .btn:hover {
+    transform: scale(1.03);
+    opacity: 0.9;
+    }
+
+    .status-msg {
+    margin-top: 15px;
+    padding: 10px;
+    border-radius: 15px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.5);
+    }
+</style>
+
+<div class="main-container">
+    @if (currentUser == null)
+    {
+        <div class="glass-card">Loading your secure cloud session...</div>
+    }
+    else
+    {
+        <button class="btn btn-logout" @onclick="Logout">Logout</button>
+        @if (currentUser != null && currentUser.IsManager)
+        {
+            <button class="btn btn-logout" style="margin-right: 10px; background: #d63384; color: white; border: none;" @onclick="GoToInvoices">Manage Invoices</button>
+        }
+        <button class="btn btn-logout" @onclick="GoToShifts">Go To Shifts</button>
+        <h2>Welcome back, @currentUser.NationalID</h2>
+        <p>Role: <b>@(currentUser.IsManager ? "Administrator" : "Employee")</b></p>
+
+        @if (currentUser.IsManager)
+        {
+            <div class="glass-card">
+                <h3>System Employees</h3>
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>National ID</th>
+                            <th>Phone</th>
+                            <th>Wage</th>
+                            <th>Manager</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var emp in allEmployees)
+                        {
+                            <tr>
+                                <td>@emp.EmployeeID</td>
+                                <td>@emp.NationalID</td>
+                                <td>@emp.PhoneNumber</td>
+                                <td>@emp.HourRage ₪</td>
+                                <td>@(emp.IsManager ? "✔" : "✘")</td>
+                                <td>@(emp.IsActivie ? "Active" : "Inactive")</td>
+                                <td>
+                                    <button class="btn btn-edit" @onclick="() => StartEditing(emp)">Edit</button>
+                                    @if (emp.IsActivie && emp.EmployeeID != currentUser.EmployeeID)
+                                    {
+                                        <button class="btn btn-delete" @onclick="() => Deactivate(emp.EmployeeID)">Fire</button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        @if (!currentUser.IsManager || editModel != null)
+        {
+            <div class="glass-card" style="max-width: 600px; margin: 0 auto;">
+                <h3>@(currentUser.IsManager ? $"Editing Employee ID: {editModel?.EmployeeID}" : "My Profile Update")</h3>
+
+                <div class="form-grid">
+                    @if (currentUser.IsManager)
+                    {
+                        @* Managers can edit everything *@
+                        <div class="input-group">
+                            <label>National ID</label>
+                            <input type="text" class="input-field" @bind="editModel.NationalID" />
+                        </div>
+                        <div class="input-group">
+                            <label>Hourly Wage</label>
+                            <input type="number" class="input-field" @bind="editModel.HourRage" />
+                        </div>
+                        <div class="input-group">
+                            <label>Role</label>
+                            <select class="input-field" @bind="editModel.IsManager">
+                                <option value="true">Manager</option>
+                                <option value="false">Employee</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Account Status</label>
+                            <select class="input-field" @bind="editModel.IsActivie">
+                                <option value="true">Active</option>
+                                <option value="false">Inactive</option>
+                            </select>
+                        </div>
+                    }
+
+                    @* Both can edit Phone and Password *@
+                    <div class="input-group">
+                        <label>Phone Number</label>
+                        <input type="text" class="input-field" @bind="editModel.PhoneNumber" />
+                    </div>
+                    <div class="input-group">
+                        <label>Password</label>
+                        <input type="text" class="input-field" @bind="editModel.Password" />
+                    </div>
+                </div>
+
+                <button class="btn btn-save" @onclick="HandleSave">Save Changes</button>
+
+                @if (!string.IsNullOrEmpty(statusMsg))
+                {
+                    <div class="status-msg" style="color: #d63384;">@statusMsg</div>
+                }
+            </div>
+        }
+    }
+</div>
+
+
+@* // כאן התחלתי את הקטע של יצירת משתמש חדש
+ *@
+
+<div style="display: flex; justify-content: space-between; align-items: center;">
+    <h3>System Employees</h3>
+    @* כפתור חדש להצגת טופס הרישום *@
+    <button class="btn btn-add" style="background: #ffb6c1; color: white;" @onclick="() => showRegisterForm = !showRegisterForm">
+        @(showRegisterForm ? "Close Form" : "➕ Add New Employee")
+    </button>
+</div>
+@if (currentUser!=null)
+{
+    @if (currentUser.IsManager && showRegisterForm)
+    {
+        <div class="glass-card" style="max-width: 600px; margin: 20px auto; border: 2px solid #ffb6c1;">
+            <h3 style="color: #d63384;">Register New Employee</h3>
+            <div class="form-grid">
+                <div class="input-group">
+                    <label>National ID</label>
+                    <input type="text" class="input-field" @bind="newEmployeeModel.NationalID" />
+                </div>
+                <div class="input-group">
+                    <label>Password</label>
+                    <input type="text" class="input-field" @bind="newEmployeeModel.Password" />
+                </div>
+                <div class="input-group">
+                    <label>Phone Number</label>
+                    <input type="text" class="input-field" @bind="newEmployeeModel.PhoneNumber" />
+                </div>
+                <div class="input-group">
+                    <label>Hourly Wage</label>
+                    <input type="number" class="input-field" @bind="newEmployeeModel.HourRage" />
+                </div>
+                <div class="input-group">
+                    <label>Role</label>
+                    <select class="input-field" @bind="newEmployeeModel.IsManager">
+                        <option value="false">Employee</option>
+                        <option value="true">Manager</option>
+                    </select>
+                </div>
+            </div>
+            <button class="btn btn-save" style="background: #ff85a1;" @onclick="HandleRegister">Create & Save</button>
+
+            @if (!string.IsNullOrEmpty(registerStatusMsg))
+            {
+                <div class="status-msg" style="color: #d63384;">@registerStatusMsg</div>
+            }
+        </div>
+    }
+
+
+}
+
+@code {
+    // כאן מתחילה קוד רישום משתמש חדש
+
+    // משתנים חדשים לטובת הרישום
+    private bool showRegisterForm = false;
+    private Employee newEmployeeModel = new Employee { IsActivie = true };
+    private string registerStatusMsg = "";
+
+    private async Task HandleRegister()
+    {
+        // בדיקת תקינות בסיסית
+        if (string.IsNullOrWhiteSpace(newEmployeeModel.NationalID) || string.IsNullOrWhiteSpace(newEmployeeModel.Password))
+        {
+            registerStatusMsg = "National ID and Password are required.";
+            return;
+        }
+
+        try
+        {
+            // שימוש בפעולה שביקשת מה-DBL
+            Employee result = await db.RegisterEmployeeAsync(newEmployeeModel);
+
+            if (result != null)
+            {
+                registerStatusMsg = "Employee registered successfully!";
+                newEmployeeModel = new Employee { IsActivie = true }; // איפוס הטופס
+                showRegisterForm = false; // סגירת הטופס
+                await RefreshList(); // רענון הטבלה כדי לראות את העובד החדש
+            }
+            else
+            {
+                registerStatusMsg = "Error: Could not register employee.";
+            }
+        }
+        catch (Exception ex)
+        {
+            registerStatusMsg = "Database error: " + ex.Message;
+        }
+    }
+
+    // כאן מסתיים קוד רשימת משתמש חדש
+
+
+
+    // Manual database instance
+    private EmployeeDB db = new EmployeeDB();
+
+    private Employee currentUser;
+    private List<Employee> allEmployees = new();
+    private Employee editModel; // Stores current item being edited
+    private string statusMsg = "";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Fetch user from Session
+            var result = await MySession.GetAsync<Employee>("CurrentUser");
+            if (!result.Success || result.Value == null)
+            {
+                NavManager.NavigateTo("/login");
+                return;
+            }
+
+            currentUser = result.Value;
+
+            if (currentUser.IsManager)
+            {
+                await RefreshList();
+            }
+            else
+            {
+                // Regular employees automatically start editing themselves
+                StartEditing(currentUser);
+            }
+
+            StateHasChanged();
+        }
+    }
+
+    private async Task RefreshList()
+    {
+        allEmployees = await db.GetAllEmployeesAsync(includeInactive: true);
+    }
+
+    private void StartEditing(Employee emp)
+    {
+        // Clone the object to prevent binding directly to the list/session before saving
+        editModel = new Employee
+            {
+                EmployeeID = emp.EmployeeID,
+                NationalID = emp.NationalID,
+                Password = emp.Password,
+                IsManager = emp.IsManager,
+                PhoneNumber = emp.PhoneNumber,
+                HourRage = emp.HourRage,
+                IsActivie = emp.IsActivie
+            };
+        statusMsg = "";
+    }
+
+    public async Task GoToShifts() 
+    {
+        NavManager.NavigateTo("/shift");
+    }
+
+    private async Task HandleSave()
+    {
+        // Manual validation check
+        if (string.IsNullOrWhiteSpace(editModel.PhoneNumber) || string.IsNullOrWhiteSpace(editModel.Password))
+        {
+            statusMsg = "Phone and Password are required fields.";
+            return;
+        }
+
+        try
+        {
+            // Using the bulk update method you added to EmployeeDB
+            await db.UpdateEmployeeAsync(editModel);
+            statusMsg = "Data successfully synchronized with cloud database!";
+
+            if (currentUser.IsManager)
+            {
+                await RefreshList();
+            }
+            else
+            {
+                // Update the current session object if user edited themselves
+                currentUser = editModel;
+                await MySession.SetAsync("CurrentUser", currentUser);
+            }
+        }
+        catch (Exception)
+        {
+            statusMsg = "Error: Could not update database.";
+        }
+    }
+
+    private async Task Deactivate(int id)
+    {
+        // Fire logic using SetActiveAsync
+        await db.SetActiveAsync(id, false);
+        await RefreshList();
+        statusMsg = "Employee marked as inactive.";
+    }
+
+    private async Task Logout()
+    {
+        await MySession.DeleteAsync("CurrentUser");
+        NavManager.NavigateTo("/login");
+    }
+    public void GoToInvoices()
+    {
+        NavManager.NavigateTo("/invoice");
+    }
+}
